@@ -51,18 +51,20 @@ const useAsync = (asyncCallback, initialState, deps) => {
         dispatch({type: 'rejected', error})
       },
     )
-  }, deps)
+  }, [asyncCallback])
 
   return state
 }
 
 function PokemonInfo({pokemonName}) {
-  const state = useAsync(() => {
-      if (!pokemonName) {
-        return
-      }
-      return fetchPokemon(pokemonName)
-    },{
+  const asyncCallback = React.useCallback(() => {
+    if (!pokemonName) {
+      return
+    }
+    return fetchPokemon(pokemonName)
+  }, [pokemonName])
+
+  const state = useAsync(asyncCallback,{
     status: pokemonName ? 'pending' : 'idle',
   }, [pokemonName]);
 
