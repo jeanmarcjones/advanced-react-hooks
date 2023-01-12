@@ -9,6 +9,7 @@ import {
   PokemonInfoFallback,
   PokemonErrorBoundary,
 } from '../pokemon'
+import { useRef } from 'react';
 
 function asyncReducer(state, action) {
   switch (action.type) {
@@ -27,6 +28,24 @@ function asyncReducer(state, action) {
   }
 }
 
+const useSafeDispatch = (dispatch) => {
+  const isMountedRef = useRef(false);
+
+  React.useEffect(() => {
+    isMountedRef.current = true
+
+    return () => {
+      isMountedRef.current = false
+    }
+  }, []);
+
+  return React.useCallback((...args) => {
+    if (isMountedRef.current) {
+      dispatch(...args);
+    }
+  }, [dispatch]);
+}
+
 const useAsync = (initialState, deps) => {
   const [state, dispatch] = React.useReducer(asyncReducer, {
     status: 'idle',
@@ -35,21 +54,23 @@ const useAsync = (initialState, deps) => {
     ...initialState
   })
 
+  const safeDispatch = useSafeDispatch(dispatch)
+
   const run = React.useCallback((promise) => {
     if (!promise) {
       return
     }
 
-    dispatch({type: 'pending'})
+    safeDispatch({type: 'pending'})
     promise.then(
       data => {
-        dispatch({type: 'resolved', data})
+        safeDispatch({type: 'resolved', data})
       },
       error => {
-        dispatch({type: 'rejected', error})
+        safeDispatch({type: 'rejected', error})
       },
     )
-  }, [])
+  }, [safeDispatch])
 
   return { ...state, run }
 }
@@ -63,8 +84,12 @@ function PokemonInfo({pokemonName}) {
     if (!pokemonName) {
       return
     }
-    const pokemonPromise = fetchPokemon(pokemonName)
+    const pokemonPromise = fetchPokemon(pokemonName, 5000)
     run(pokemonPromise)
+
+    return () => {
+      console.log('unmounted');
+    };
   }, [pokemonName, run])
 
   switch (status) {
